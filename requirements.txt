@@ -1,0 +1,18 @@
+# Dependencias principales
+qwen-tts
+fastapi
+uvicorn[standard]
+python-multipart
+soundfile
+numpy
+aiofiles
+
+# PyTorch con CUDA (para RTX 4070)
+# Si tienes GPU NVIDIA, instala PyTorch con CUDA asi:
+# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+#
+# Si solo tienes CPU:
+# pip install torch torchvision torchaudio
+
+# Opcional - Flash Attention 2 (reduce uso de VRAM)
+# pip install flash-attn --no-build-isolation

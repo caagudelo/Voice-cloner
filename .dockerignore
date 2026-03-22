@@ -1,0 +1,29 @@
+# Git
+.git
+.gitignore
+
+# Entornos virtuales
+venv/
+env/
+.env
+
+# Archivos de caché y PyCache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Datos del proyecto que usaremos a través de volúmenes persistentes
+outputs/
+modelo/
+uploads/
+
+# Archivos propios del IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Archivos del instalador Batch 
+*.bat

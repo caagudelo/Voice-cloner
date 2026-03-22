@@ -1,0 +1,21 @@
+services:
+  clonador-voz:
+    build: .
+    container_name: qwen-voice-clone
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./modelo:/app/modelo
+      - ./outputs:/app/outputs
+      - ./uploads:/app/uploads
+    # Configuración esencial para habilitar la GPU NVIDIA en Docker
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    environment:
+      - TZ=America/Bogota 

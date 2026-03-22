@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Qwen Voice Clone | ROCKA DEV</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --primary: #00d9ff;
+            --primary-glow: rgba(0, 217, 255, 0.4);
+            --secondary: #00ff88;
+            --secondary-glow: rgba(0, 255, 136, 0.3);
+            --bg-dark: #0a0e17;
+            --card-bg: rgba(255, 255, 255, 0.04);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --text-main: #e2e8f0;
+            --text-dim: #94a3b8;
+            --accent-purple: #cca2ff;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: radial-gradient(circle at top right, #1e1b4b, #0a0e17 60%);
+            background-attachment: fixed;
+            min-height: 100vh;
+            color: var(--text-main);
+            padding: 24px;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+            padding: 0 15px;
+        }
+
+        header {
+            text-align: center;
+            padding: 40px 0 60px;
+            animation: fadeInDown 0.8s ease-out;
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        header h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: clamp(2.5rem, 8vw, 3.5rem);
+            letter-spacing: -0.02em;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #fff 30%, var(--primary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 10px var(--primary-glow));
+        }
+
+        header p {
+            color: var(--text-dim);
+            font-size: 1.2rem;
+        }
+
+        .main-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 400px;
+            gap: 24px;
+            align-items: start;
+        }
+
+        @media (max-width: 1024px) {
+            .main-layout {
+                grid-template-columns: minmax(0, 1fr);
+            }
+        }
+
+        .status-bar {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 12px 24px;
+            margin-bottom: 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ef4444;
+            transition: background-color 0.3s, box-shadow 0.3s;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .status-dot.online {
+            background: var(--secondary);
+            box-shadow: 0 0 12px var(--secondary-glow);
+        }
+
+        .status-dot.online::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: var(--secondary);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                opacity: 0.8;
+            }
+
+            100% {
+                transform: scale(2.5);
+                opacity: 0;
+            }
+        }
+
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 32px;
+            margin-bottom: 24px;
+            transition: border-color 0.3s;
+        }
+
+        .card:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .card h2 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.5rem;
+            margin-bottom: 24px;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .card h2 span {
+            color: var(--primary);
+            font-size: 1.2rem;
+            opacity: 0.6;
+            font-weight: 700;
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 500;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .hint {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            margin-top: 6px;
+        }
+
+        input,
+        textarea,
+        select {
+            width: 100%;
+            padding: 14px 18px;
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.4);
+            color: #fff;
+            font-size: 1rem;
+            font-family: inherit;
+            transition: border-color 0.2s, background-color 0.2s, box-shadow 0.2s;
+        }
+
+        input:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: rgba(0, 0, 0, 0.6);
+            box-shadow: 0 0 0 3px rgba(0, 217, 255, 0.1);
+        }
+
+        .file-upload {
+            border: 2px dashed var(--card-border);
+            border-radius: 16px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.02);
+            transition: border-color 0.3s, background-color 0.3s;
+            position: relative;
+            overflow: hidden;
+            min-height: 180px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .file-upload:hover {
+            border-color: var(--primary);
+            background: rgba(0, 217, 255, 0.03);
+        }
+
+        .file-upload.has-file {
+            border-style: solid;
+            border-color: var(--secondary);
+            background: rgba(0, 255, 136, 0.02);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px 32px;
+            border: none;
+            border-radius: 14px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Outfit', sans-serif;
+            width: 100%;
+            gap: 10px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), #00a3ff);
+            color: #000;
+            box-shadow: 0 8px 24px -8px var(--primary-glow);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            filter: brightness(1.1);
+            box-shadow: 0 12px 28px -8px var(--primary-glow);
+        }
+
+        .btn-primary:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            filter: grayscale(0.5);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff;
+            border: 1px solid var(--card-border);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 0.85rem;
+            border-radius: 8px;
+            background: rgba(0, 217, 255, 0.1);
+            color: var(--primary);
+            border: 1px solid rgba(0, 217, 255, 0.2);
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-small:hover:not(:disabled) {
+            background: rgba(0, 217, 255, 0.18);
+            border-color: var(--primary);
+        }
+
+        .btn-small.danger {
+            background: rgba(239, 68, 68, 0.1);
+            color: #f87171;
+            border-color: rgba(239, 68, 68, 0.2);
+        }
+
+        .btn-small.danger:hover:not(:disabled) {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: #f87171;
+        }
+
+        .btn-small:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 12px;
+            border-radius: 12px;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .toolbar-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        #waveform {
+            width: 100%;
+            height: 100px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            margin: 20px 0 10px;
+            border: 1px solid var(--card-border);
+            cursor: crosshair;
+            overflow: hidden;
+            position: relative;
+            max-width: 100%;
+        }
+
+        .history-item {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 14px;
+            padding: 16px;
+            border: 1px solid var(--card-border);
+            margin-bottom: 12px;
+            transition: all 0.2s;
+        }
+
+        .history-item:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .history-item p {
+            margin-bottom: 8px;
+        }
+
+        .error-message {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: #f87171;
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: none;
+            font-size: 0.9rem;
+        }
+
+        .error-message.visible {
+            display: block;
+            animation: shake 0.4s;
+        }
+
+        @keyframes shake {
+
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+
+            25% {
+                transform: translateX(-5px);
+            }
+
+            75% {
+                transform: translateX(5px);
+            }
+        }
+
+        #loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        footer {
+            text-align: center;
+            padding: 60px 0 20px;
+            color: var(--text-dim);
+        }
+
+        .credit {
+            margin-top: 15px;
+            font-family: 'Outfit', sans-serif;
+            color: var(--text-main);
+            font-size: 1.1rem;
+            letter-spacing: 0.05em;
+        }
+
+        .credit span {
+            color: var(--primary);
+            font-weight: 700;
+            text-shadow: 0 0 15px var(--primary-glow);
+            padding: 2px 8px;
+            background: rgba(0, 217, 255, 0.05);
+            border-radius: 6px;
+        }
+
+        .audio-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 600px) {
+            .toolbar {
+                justify-content: center;
+            }
+
+            .status-bar {
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
+            }
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/wavesurfer.js/7.8.2/wavesurfer.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/wavesurfer.js/7.8.2/plugins/regions.min.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Qwen Voice Clone</h1>
+            <p>Sintesis de voz de próxima generación con IA</p>
+        </header>
+
+        <div class="status-bar">
+            <div class="status-indicator">
+                <div class="status-dot" id="serverStatus"></div>
+                <span id="serverStatusText">Estableciendo conexión...</span>
+            </div>
+            <span id="deviceInfo" style="font-family: monospace; color: var(--primary); font-weight: 600;">Detectando
+                hardware...</span>
+        </div>
+
+        <div class="main-layout">
+            <div class="content-left">
+                <form id="cloneForm">
+                    <div class="card">
+                        <h2><span>01</span> Huella de Voz</h2>
+                        <div class="form-group">
+                            <div class="file-upload" id="fileUpload">
+                                <input type="file" id="audioFile" accept="audio/*" style="display: none;">
+                                <div id="uploadPlaceholder">
+                                    <span style="font-size: 3rem; display: block; margin-bottom: 10px;">🎙️</span>
+                                    <p style="font-weight: 600; font-size: 1.1rem;">Seleccionar Audio de Referencia</p>
+                                    <p class="hint">WAV, MP3, OGG (Sugerido 5-10s)</p>
+                                </div>
+                                <p id="fileNameDisplay"
+                                    style="color: var(--secondary); font-weight: 600; margin-top: 10px; display: none;">
+                                </p>
+                            </div>
+
+                            <div id="audioEditor" style="display: none; margin-top: 20px;">
+                                <div id="waveform"></div>
+                                <div class="toolbar">
+                                    <div class="toolbar-group">
+                                        <button type="button" class="btn-small" id="playRegionBtn"
+                                            title="Reproducir selección">▶ Región</button>
+                                        <button type="button" class="btn-small" id="stopBtn" title="Detener">⏹</button>
+                                    </div>
+                                    <div class="toolbar-group">
+                                        <button type="button" class="btn-small" id="zoomOutBtn"
+                                            title="Alejar">➖</button>
+                                        <button type="button" class="btn-small" id="zoomInBtn"
+                                            title="Acercar">➕</button>
+                                    </div>
+                                    <span id="regionTimeInfo"
+                                        style="font-family: monospace; color: var(--secondary); font-weight: 600; font-size: 0.85rem;"></span>
+                                </div>
+                                <p class="hint" style="text-align: center; margin-top: 10px;">Arrastra los bordes para
+                                    seleccionar el mejor fragmento del audio.</p>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 10px;">
+                                <label>Transcripción del Audio</label>
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <select id="transcribeLanguage"
+                                        style="width: auto; padding: 6px 10px; font-size: 0.8rem; height: 32px;">
+                                        <option value="">Auto-Idioma</option>
+                                        <option value="es">Español</option>
+                                        <option value="en">Inglés</option>
+                                    </select>
+                                    <button type="button" class="btn-small" id="transcribeBtn" disabled>✨
+                                        Transcribir</button>
+                                </div>
+                            </div>
+                            <textarea id="refText" placeholder="Escribe lo que se dice en el audio de arriba..."
+                                required rows="3"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h2><span>02</span> Contenido a Generar</h2>
+                        <div class="form-group">
+                            <label>Texto Objetivo</label>
+                            <textarea id="targetText"
+                                placeholder="Escribe el texto que quieres que la voz clonada diga..." required rows="4"
+                                style="margin-bottom: 15px;"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Idioma de Salida</label>
+                            <select id="language">
+                                <option value="Spanish">Español</option>
+                                <option value="English">Inglés</option>
+                                <option value="Portuguese">Portugués</option>
+                                <option value="French">Francés</option>
+                                <option value="Chinese">Chino</option>
+                                <option value="Japanese">Japonés</option>
+                                <option value="Korean">Coreano</option>
+                                <option value="German">Alemán</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="errorMessage" class="error-message"></div>
+                    <button type="submit" class="btn btn-primary" id="submitBtn">Generar Clonación de Voz ⚡</button>
+                </form>
+            </div>
+
+            <div class="content-right">
+                <div id="loading">
+                    <div class="spinner"></div>
+                    <p style="font-family: 'Outfit', sans-serif; font-weight: 500;">Sintetizando voz...</p>
+                    <p class="hint">Esto puede tomar unos segundos dependiendo de tu GPU</p>
+                </div>
+
+                <div class="card" id="resultSection" style="display: none; animation: fadeInUp 0.5s ease-out;">
+                    <h2>✓ Resultado</h2>
+                    <audio id="resultAudio" controls
+                        style="width: 100%; margin-bottom: 20px; border-radius: 12px;"></audio>
+                    <div class="audio-controls">
+                        <a id="downloadBtn" download class="btn btn-primary" style="flex: 1;">Descargar WAV</a>
+                        <a id="downloadMp3Btn" download class="btn btn-secondary"
+                            style="flex: 1; display: none;">MP3</a>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                        <h2 style="margin-bottom: 0;">⌛ Historial de Sesión</h2>
+                        <button type="button" class="btn-small danger" id="clearHistoryBtn" style="display: none;">🗑️
+                            Borrar Todo</button>
+                    </div>
+                    <div id="historyContainer">
+                        <p class="hint" style="text-align: center; padding: 20px;">No hay generaciones recientes</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p style="font-size: 0.9rem; opacity: 0.7;">Potenciado por Qwen3-TTS & Whisper Engine</p>
+            <p class="credit">Diseñado por <span>ROCKA DEV</span></p>
+        </footer>
+    </div>
+
+    <script>
+        // Elementos DOM
+        const form = document.getElementById('cloneForm');
+        const fileUpload = document.getElementById('fileUpload');
+        const audioFile = document.getElementById('audioFile');
+        const fileNameDisplay = document.getElementById('fileNameDisplay');
+        const uploadPlaceholder = document.getElementById('uploadPlaceholder');
+        const transcribeBtn = document.getElementById('transcribeBtn');
+        const submitBtn = document.getElementById('submitBtn');
+        const loading = document.getElementById('loading');
+        const errorMessage = document.getElementById('errorMessage');
+        const resultSection = document.getElementById('resultSection');
+        const resultAudio = document.getElementById('resultAudio');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const downloadMp3Btn = document.getElementById('downloadMp3Btn');
+        const serverStatus = document.getElementById('serverStatus');
+        const serverStatusText = document.getElementById('serverStatusText');
+        const deviceInfo = document.getElementById('deviceInfo');
+        const refText = document.getElementById('refText');
+        const targetText = document.getElementById('targetText');
+        const audioEditor = document.getElementById('audioEditor');
+        const regionTimeInfo = document.getElementById('regionTimeInfo');
+        const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+
+        let wavesurfer = null;
+        let wsRegions = null;
+        let currentRegion = null;
+        let zoomLevel = 50;
+        let isPlayingRegion = false;
+
+        // --- Status del Servidor ---
+        async function checkStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                serverStatus.classList.add('online');
+                serverStatusText.textContent = data.model_loaded ? 'Motor Activo' : 'Servidor Listo';
+                if (data.gpu) {
+                    const gpuName = data.gpu.name.replace('NVIDIA ', '').replace('GeForce ', '');
+                    deviceInfo.textContent = `${gpuName} (${data.gpu.total_memory_gb.toFixed(0)}GB)`;
+                } else {
+                    deviceInfo.textContent = 'CPU Mode';
+                }
+            } catch (error) {
+                serverStatus.classList.remove('online');
+                serverStatusText.textContent = 'Servidor Offline';
+                deviceInfo.textContent = 'Desconectado';
+            }
+        }
+        checkStatus();
+        setInterval(checkStatus, 15000);
+
+        // --- Manejo de Archivo de Audio ---
+        fileUpload.onclick = (e) => {
+            if (e.target.closest('#audioEditor')) return;
+            audioFile.click();
+        };
+
+        audioFile.onchange = () => {
+            if (audioFile.files.length > 0) {
+                const file = audioFile.files[0];
+                fileNameDisplay.textContent = file.name;
+                fileNameDisplay.style.display = 'block';
+                uploadPlaceholder.style.display = 'none';
+                fileUpload.classList.add('has-file');
+                transcribeBtn.disabled = false;
+                audioEditor.style.display = 'block';
+                initWaveSurfer(file);
+            }
+        };
+
+        // --- WaveSurfer & Editor ---
+        function initWaveSurfer(file) {
+            if (wavesurfer) wavesurfer.destroy();
+
+            wavesurfer = WaveSurfer.create({
+                container: '#waveform',
+                waveColor: '#444',
+                progressColor: '#00d9ff',
+                cursorColor: '#00ff88',
+                barWidth: 2,
+                barGap: 3,
+                height: 100,
+                minPxPerSec: zoomLevel,
+                interact: true,
+                dragToSeek: true
+            });
+
+            wsRegions = wavesurfer.registerPlugin(WaveSurfer.Regions.create());
+
+            wavesurfer.on('ready', () => {
+                const duration = wavesurfer.getDuration();
+                wsRegions.clearRegions();
+                currentRegion = wsRegions.addRegion({
+                    start: 0,
+                    end: Math.min(duration, 10.0),
+                    color: 'rgba(0, 217, 255, 0.2)',
+                    drag: true,
+                    resize: true
+                });
+                updateRegionInfo(currentRegion);
+            });
+
+            wavesurfer.on('timeupdate', (currentTime) => {
+                if (isPlayingRegion && currentRegion && currentTime >= currentRegion.end) {
+                    wavesurfer.pause();
+                    isPlayingRegion = false;
+                }
+            });
+
+            wsRegions.on('region-updated', (region) => {
+                const MAX = 15.0;
+                if (region.end - region.start > MAX) {
+                    region.setOptions({ end: region.start + MAX });
+                }
+                updateRegionInfo(region);
+                currentRegion = region;
+            });
+
+            wavesurfer.load(URL.createObjectURL(file));
+        }
+
+        function updateRegionInfo(region) {
+            const dur = (region.end - region.start).toFixed(1);
+            regionTimeInfo.textContent = `Selección: ${dur}s`;
+        }
+
+        // --- Controles de Toolbar ---
+        document.getElementById('playRegionBtn').onclick = () => {
+            if (currentRegion) {
+                isPlayingRegion = true;
+                currentRegion.play();
+            }
+        };
+        document.getElementById('stopBtn').onclick = () => {
+            wavesurfer.stop();
+            isPlayingRegion = false;
+        };
+        document.getElementById('zoomInBtn').onclick = () => {
+            zoomLevel += 20;
+            wavesurfer.zoom(zoomLevel);
+        };
+        document.getElementById('zoomOutBtn').onclick = () => {
+            zoomLevel = Math.max(10, zoomLevel - 20);
+            wavesurfer.zoom(zoomLevel);
+        };
+
+        // --- Transcripción ---
+        transcribeBtn.onclick = async () => {
+            if (!audioFile.files[0]) return;
+            const originalText = transcribeBtn.innerHTML;
+            transcribeBtn.disabled = true;
+            transcribeBtn.innerHTML = '⌛...';
+
+            const fd = new FormData();
+            fd.append('audio', audioFile.files[0]);
+            if (currentRegion) {
+                fd.append('start_time', currentRegion.start);
+                fd.append('end_time', currentRegion.end);
+            }
+            const lang = document.getElementById('transcribeLanguage').value;
+            if (lang) fd.append('language', lang);
+
+            try {
+                const res = await fetch('/api/transcribe', { method: 'POST', body: fd });
+                const data = await res.json();
+                if (data.success) {
+                    refText.value = data.text;
+                    transcribeBtn.innerHTML = '✅';
+                } else {
+                    throw new Error(data.detail || 'Error');
+                }
+            } catch (e) {
+                alert('Error en transcripción: ' + e.message);
+                transcribeBtn.innerHTML = '❌';
+            } finally {
+                setTimeout(() => {
+                    transcribeBtn.innerHTML = originalText;
+                    transcribeBtn.disabled = false;
+                }, 2000);
+            }
+        };
+
+        // --- Historial ---
+        function saveToHistory(text, url) {
+            let history = JSON.parse(localStorage.getItem('clone_history') || '[]');
+            history.unshift({ text, url, date: new Date().toLocaleTimeString() });
+            history = history.slice(0, 5);
+            localStorage.setItem('clone_history', JSON.stringify(history));
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const container = document.getElementById('historyContainer');
+            const history = JSON.parse(localStorage.getItem('clone_history') || '[]');
+
+            if (history.length === 0) {
+                container.innerHTML = '<p class="hint" style="text-align: center; padding: 20px;">No hay generaciones recientes</p>';
+                clearHistoryBtn.style.display = 'none';
+                return;
+            }
+
+            clearHistoryBtn.style.display = 'block';
+            container.innerHTML = history.map((item, idx) => `
+                <div class="history-item">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 0.75rem; color: var(--text-dim);">${item.date}</span>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn-small" onclick="loadHistoryItem('${item.url}')">Cargar</button>
+                            <button class="btn-small danger" onclick="deleteHistoryItem(${idx})" title="Eliminar">🗑️</button>
+                        </div>
+                    </div>
+                    <p style="margin-top: 8px; font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        ${item.text}
+                    </p>
+                </div>
+            `).join('');
+        }
+
+        window.deleteHistoryItem = (index) => {
+            if (!confirm('¿Eliminar esta generación del historial?')) return;
+            let history = JSON.parse(localStorage.getItem('clone_history') || '[]');
+            history.splice(index, 1);
+            localStorage.setItem('clone_history', JSON.stringify(history));
+            renderHistory();
+        };
+
+        clearHistoryBtn.onclick = () => {
+            if (!confirm('¿Estás seguro de que quieres borrar todo el historial?')) return;
+            localStorage.removeItem('clone_history');
+            renderHistory();
+        };
+
+        window.loadHistoryItem = (url) => {
+            resultAudio.src = url;
+            downloadBtn.href = url;
+            resultSection.style.display = 'block';
+            resultSection.scrollIntoView({ behavior: 'smooth' });
+        };
+        renderHistory();
+
+        // --- Formulario Principal ---
+        form.onsubmit = async (e) => {
+            e.preventDefault();
+            errorMessage.classList.remove('visible');
+            resultSection.style.display = 'none';
+            loading.style.display = 'block';
+            submitBtn.disabled = true;
+
+            const fd = new FormData();
+            fd.append('ref_audio', audioFile.files[0]);
+            fd.append('ref_text', refText.value);
+            fd.append('target_text', targetText.value);
+            fd.append('language', document.getElementById('language').value);
+            if (currentRegion) {
+                fd.append('start_time', currentRegion.start);
+                fd.append('end_time', currentRegion.end);
+            }
+
+            try {
+                const response = await fetch('/api/clone', { method: 'POST', body: fd });
+                const data = await response.json();
+
+                if (!response.ok) throw new Error(data.detail || 'Error en el servidor');
+
+                resultAudio.src = data.audio_url;
+                downloadBtn.href = data.audio_url;
+
+                if (data.audio_url_mp3) {
+                    downloadMp3Btn.href = data.audio_url_mp3;
+                    downloadMp3Btn.style.display = 'inline-flex';
+                }
+
+                resultSection.style.display = 'block';
+                saveToHistory(targetText.value, data.audio_url);
+                resultSection.scrollIntoView({ behavior: 'smooth' });
+
+            } catch (error) {
+                errorMessage.textContent = error.message;
+                errorMessage.classList.add('visible');
+            } finally {
+                loading.style.display = 'none';
+                submitBtn.disabled = false;
+            }
+        };
+    </script>
+</body>
+
+</html>
