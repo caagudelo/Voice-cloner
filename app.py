@@ -8,6 +8,8 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+from typing import Optional, List
 import gc
 import whisper
 import subprocess
@@ -16,7 +18,34 @@ import shutil
 # Configuracion CUDA para GPUs con memoria limitada (8GB)
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
-app = FastAPI(title="Qwen Voice Clone", description="Aplicacion para clonar voz usando Qwen3-TTS")
+tags_metadata = [
+    {
+        "name": "General",
+        "description": "Endpoints generales e información básica.",
+    },
+    {
+        "name": "Voz",
+        "description": "Endpoints avanzados de procesamiento de audio, transcripción (Whisper) y clonación (Qwen3-TTS).",
+    },
+    {
+        "name": "Sistema",
+        "description": "Gestión de GPU, memoria y carga de modelos.",
+    },
+]
+
+app = FastAPI(
+    title="Qwen Voice Clone API",
+    description="""
+API Profesional para la clonación de voz utilizando **Qwen3-TTS** y **Whisper**.
+
+## Funcionalidades Activas
+* **Clonación de Voz (TTS)**: Sintetiza audios en varios idiomas manteniendo el tono de un audio de referencia.
+* **Reconocimiento de Voz (ASR)**: Transcribe audios utilizando Whisper Large pre-configurado para uso en GPU.
+* **Control Inteligente de VRAM**: Limpia la memoria GPU de forma fluida para combinar modelos.
+""",
+    version="1.0.0",
+    openapi_tags=tags_metadata
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -25,6 +54,47 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# --- Modelos de Respuesta Pydantic ---
+class LanguageResponse(BaseModel):
+    languages: List[str] = Field(..., description="Lista de idiomas soportados")
+
+class TranscribeResponse(BaseModel):
+    success: bool = Field(..., description="Estado de la petición")
+    text: str = Field(..., description="Texto transcrito")
+
+class GpuStatus(BaseModel):
+    name: str = Field(..., description="Nombre de la tarjeta gráfica")
+    total_memory_gb: float = Field(..., description="Memoria total en GB")
+    used_memory_gb: float = Field(..., description="Memoria utilizada por CUDA en GB")
+    free_memory_gb: float = Field(..., description="Memoria disponible actual en GB")
+
+class StatusResponse(BaseModel):
+    status: str = Field(..., example="online")
+    model_loaded: bool = Field(..., description="Si el modelo de Qwen ya está en memoria")
+    cuda_available: bool = Field(..., description="Si la aceleración por hardware CUDA está activa")
+    current_device: str = Field(..., description="Dispositivo principal en uso (cuda/cpu)")
+    gpu: Optional[GpuStatus] = None
+
+class CloneResponse(BaseModel):
+    success: bool
+    message: str
+    audio_url: str = Field(..., description="URL para descargar el audio generado en formato WAV")
+    filename: str = Field(..., description="Nombre del archivo original (.wav)")
+    has_mp3: bool = Field(..., description="Indica si se generó un MP3 en paralelo")
+    audio_url_mp3: Optional[str] = Field(None, description="URL para el archivo MP3 (si está disponible)")
+    filename_mp3: Optional[str] = Field(None, description="Nombre del archivo MP3 (si está disponible)")
+
+class LoadModelResponse(BaseModel):
+    success: bool
+    message: str
+    device: str
+
+class ClearMemoryResponse(BaseModel):
+    success: bool
+    message: str
+    free_memory_gb: Optional[float] = None
+
 
 # Directorios
 BASE_DIR = Path(__file__).parent
@@ -207,27 +277,34 @@ def get_model(force_cpu=False):
     return model
 
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
 async def home():
-    """Sirve la pagina principal"""
+    """Sirve la pagina principal (Interfaz de Usuario)"""
     html_path = BASE_DIR / "index.html"
     return html_path.read_text(encoding="utf-8")
 
 
-@app.get("/api/languages")
+@app.get("/api/languages", response_model=LanguageResponse, tags=["General"], summary="Obtener idiomas soportados")
 async def get_languages():
-    """Retorna los idiomas soportados"""
+    """
+    Retorna la lista de todos los idiomas que el modelo Qwen3-TTS soporta actualmente
+    para la clonación de voz.
+    """
     return {"languages": SUPPORTED_LANGUAGES}
 
 
-@app.post("/api/transcribe")
+@app.post("/api/transcribe", response_model=TranscribeResponse, tags=["Voz"], summary="Transcribir o detectar idioma de un audio")
 async def transcribe_audio(
-    audio: UploadFile = File(...),
-    language: str = Form(None, description="Idioma del audio (codigo ISO, ej: 'es', 'en')"),
-    start_time: float = Form(None, description="Inicio del recorte (segundos)"),
-    end_time: float = Form(None, description="Fin del recorte (segundos)"),
+    audio: UploadFile = File(..., description="Archivo de audio a transcribir"),
+    language: str = Form(None, description="Idioma del audio (código ISO, ej: 'es', 'en') si se conoce. Si se omite, se autodetectará."),
+    start_time: float = Form(None, description="Inicio del recorte (segundos) pre-transcripción."),
+    end_time: float = Form(None, description="Fin del recorte (segundos) pre-transcripción."),
 ):
-    """Transcribe un archivo de audio usando Whisper large (carga bajo demanda) y permite recorte de región exacta"""
+    """
+    Sube un archivo de audio (.wav, .mp3, .ogg, etc.) para ser transcrito a texto usando OpenAI Whisper.
+    - El modelo `large` se cargará en memoria GPU de forma dinámica y se liberará al finalizar para ahorrar memoria.
+    - Soporta recortes de la pista mediante `start_time` y `end_time` antes de realizar la transcripción.
+    """
     temp_audio_path = UPLOAD_DIR / f"temp_transcribe_{uuid.uuid4()}{Path(audio.filename).suffix or '.wav'}"
     
     try:
@@ -285,9 +362,12 @@ async def transcribe_audio(
 
 
 
-@app.get("/api/status")
+@app.get("/api/status", response_model=StatusResponse, tags=["Sistema"], summary="Estado del servidor y Hardware")
 async def get_status():
-    """Verifica el estado del servidor con info detallada"""
+    """
+    Verifica el estado general del servidor y recupera la información de los recursos gráficos en tiempo real. 
+    Esto incluye memoria VRAM total, libre y usada si se utiliza CUDA.
+    """
     status = {
         "status": "online",
         "model_loaded": model is not None,
@@ -307,18 +387,18 @@ async def get_status():
     return status
 
 
-@app.post("/api/clone")
+@app.post("/api/clone", response_model=CloneResponse, tags=["Voz"], summary="Sintetizar y Clonar Voz")
 async def clone_voice(
-    ref_audio: UploadFile = File(..., description="Audio de referencia (WAV, MP3, OGG)"),
-    ref_text: str = Form(..., description="Transcripcion original"),
-    target_text: str = Form(..., description="Texto a sintetizar"),
-    language: str = Form("Spanish", description="Idioma"),
-    start_time: float = Form(None, description="Inicio del recorte (segundos)"),
-    end_time: float = Form(None, description="Fin del recorte (segundos)"),
+    ref_audio: UploadFile = File(..., description="Audio de referencia con la voz a clonar (Ideal: ~3-10 segundos limpios)."),
+    ref_text: str = Form(..., description="Transcripción del audio de referencia tal como es hablado."),
+    target_text: str = Form(..., description="Texto que deseas que el modelo pronuncie usando la nueva voz."),
+    language: str = Form("Spanish", description="Idioma del texto objetivo."),
+    start_time: float = Form(None, description="Inicio del recorte opcional para el audio de referencia."),
+    end_time: float = Form(None, description="Fin del recorte opcional para el audio de referencia."),
 ):
     """
-    Clona una voz a partir de un audio de referencia.
-    - Soporta recorte exacto en base a coordenadas enviadas por el navegador web (max 10s)
+    Endpoint principal para la generación mediante Qwen3-TTS. 
+    Envía un audio de referencia junto con el texto deseado y genera un nuevo clip de voz simulando el mismo hablante.
     """
 
     if language not in SUPPORTED_LANGUAGES:
@@ -445,13 +525,16 @@ async def clone_voice(
             temp_audio_path.unlink()
 
 
-@app.get("/api/audio/{filename}")
+@app.get("/api/audio/{filename}", tags=["General"], summary="Descargar fichero de audio")
 async def get_audio(filename: str):
-    """Descarga un archivo de audio generado"""
+    """
+    Retorna y sirve un archivo de audio previamente generado desde el directorio `outputs/`.
+    Soporta explícitamente formatos `.wav` y `.mp3`.
+    """
     audio_path = OUTPUT_DIR / filename
 
     if not audio_path.exists():
-        raise HTTPException(status_code=404, detail="Audio no encontrado")
+        raise HTTPException(status_code=404, detail="Audio no encontrado en el servidor")
 
     # Detectar el tipo de medio basado en la extension
     media_type = "audio/mpeg" if filename.endswith(".mp3") else "audio/wav"
@@ -463,9 +546,9 @@ async def get_audio(filename: str):
     )
 
 
-@app.post("/api/load-model")
+@app.post("/api/load-model", response_model=LoadModelResponse, tags=["Sistema"], summary="Forzar la carga del modelo TTS")
 async def load_model_endpoint():
-    """Pre-carga el modelo en memoria"""
+    """Pre-carga el modelo base Qwen3-TTS en memoria VRAM manualmente antes de realizar solicitudes."""
     try:
         get_model()
         return {
@@ -477,9 +560,9 @@ async def load_model_endpoint():
         raise HTTPException(status_code=500, detail=f"Error al cargar modelo: {str(e)}")
 
 
-@app.post("/api/clear-memory")
+@app.post("/api/clear-memory", response_model=ClearMemoryResponse, tags=["Sistema"], summary="Vacíar VRAM (Recolección de basura)")
 async def clear_memory():
-    """Limpia la cache de memoria GPU"""
+    """Ejecuta el colector de basura y el vaciado de caché de PyTorch para liberar memoria de video inactiva."""
     clear_gpu_memory()
 
     result = {"success": True, "message": "Memoria limpiada"}
